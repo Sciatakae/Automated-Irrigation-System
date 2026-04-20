@@ -5,6 +5,9 @@
  * This follows the same App_Init / App_MainLoop style used in previous labs.
  */
 
+// currently impementing the code so theres irregularities, should run as of April 20th, 2026
+// still have not added in the esp 32, well do this week of the 20th 
+
 #include "stdio.h"
 #include "string.h"
 
