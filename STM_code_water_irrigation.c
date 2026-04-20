@@ -2,7 +2,7 @@
  * app.c
  *
  * Starter application for the STM32 automatic watering project.
- * This follows the same App_Init / App_MainLoop style used in your labs.
+ * This follows the same App_Init / App_MainLoop style used in previous labs.
  */
 
 #include "stdio.h"
