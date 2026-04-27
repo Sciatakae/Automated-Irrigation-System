@@ -53,7 +53,8 @@
 
 #define ADC_AVG_SAMPLES        10U
 
-/* If moisture percent drops below this, auto mode starts watering. */
+/* If moisture percent drops below this, 
+    auto mode starts watering. */
 #define DRY_THRESHOLD_PERCENT  30U
 
 /* Safety limits so the pump cannot run forever. */
@@ -67,7 +68,7 @@
 
 // ADC, TIMERS, AND UART handles 
 
-   // external handles from the main.c file
+/* These handles are created by STM32Cube-generated code in main.c. */
 extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
@@ -139,9 +140,9 @@ void App_Init(void)
     /* Start with the LED off. TIM2 will toggle it later. */
     HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_RESET);
 
-    /* Boot banner shown once in PuTTY. */
+    /* PuTTy welcome screen  */
     UART_SendString("\r\n-----------------------------\r\n");
-    UART_SendString(" STM32 Automatic Watering Terminal \r\n");
+    UART_SendString(" Your STM32 Automatic Watering System \r\n");
     UART_SendString("-----------------------------\r\n");
     UART_SendString("Type a command, then press Enter.\r\n");
     UART_SendString("-----------------------------\r\n");
@@ -155,17 +156,12 @@ void App_Init(void)
 
     ShowCommands();
 
-    /*
-     * TIM2:
-     * 1-second interrupt for heartbeat LED, pump safety timeout,
-     * and cooldown timing.
-     */
+    //      * TIM2: 1-second interrupt for heartbeat LED, pump safety timeout,
+
     HAL_TIM_Base_Start_IT(&htim2);
 
     /*
-     * TIM3:
-     * 1-second interrupt that requests a new moisture sample.
-     * The actual ADC read is done in the main loop, not in the ISR.
+     * TIM3: 1-second interrupt that requests a new moisture sample.
      */
     HAL_TIM_Base_Start_IT(&htim3);
 
@@ -249,14 +245,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *p_htim)
      * TIM2 runs once per second
      */
     if (p_htim->Instance == TIM2) {
-        /* endlessly blink the onboard LED when the system is active */
+        /* endlessly bloink the onboard LED when the system is active */
         HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
         /* If the pump is running, count how long it has been on. */
         if (pumpActive != 0U) {
             pumpOnSeconds++;
             if (pumpOnSeconds >= MAX_PUMP_SECONDS) {
-                /* automatic safety off . */
+                /* Safety shutoff if the pump runs too long. */
                 Pump_Set(0);
                 cooldownActive = 1;
                 cooldownSeconds = 0;
@@ -412,9 +408,9 @@ static void ShowCommands(void)
 
 static void UART_SendString(const char *text)
 {
-    // Blocking UART transmit 
-     
-     
+    /* Blocking UART transmit 
+     * from normal code, not from the timer ISRs.
+     */
     HAL_UART_Transmit(&huart2, (uint8_t *)text, strlen(text), HAL_MAX_DELAY);
 }
 
