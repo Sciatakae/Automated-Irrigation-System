@@ -1,12 +1,9 @@
   /*
- * app.c
+ * app.c file
  *
- * Starter application for the STM32 automatic watering project.
+ * STM32 automatic watering project.
  * This follows the same App_Init / App_MainLoop style used in previous labs.
  */
-
-// currently impementing the code so theres irregularities, should run as of April 20th, 2026
-// still have not added in the esp 32, well do this week of the 20th 
 
 #include "stdio.h"
 #include "string.h"
@@ -19,24 +16,41 @@
 // defining some sort of auto stop to make sure the pump and relay dont just run water in some error or bug 
 // also defining the threshhold of what dry soil is according to you. so mess around with it later and see if you can get good readings
 
-
 /*
  * Relay polarity:
  * Many relay boards are active-low, which means driving the pin LOW turns
  * the relay on. If your relay behaves the opposite way, swap these two.
  */
+// unsigned numbers are important here to mitigate incorrect conversions in the ADC sensing
+
 #define RELAY_ACTIVE_STATE     GPIO_PIN_RESET
 #define RELAY_INACTIVE_STATE   GPIO_PIN_SET
 
-/* GPIO used for the relay control signal. */
+// GPIO Parameters
+
+// visual in the .ioc file
 #define PUMP_PORT              GPIOA
 #define PUMP_PIN               GPIO_PIN_1
 
-/* Onboard LED used as a simple heartbeat indicator. */
+// Insert the light as a 'status on' indicator
 #define LED_PORT               GPIOA
 #define LED_PIN                GPIO_PIN_5
 
-/* ADC averaging helps smooth out noisy soil sensor readings. */
+
+/* ADC calibration section 
+ 
+ // change these values around to define the lower and upper limits of what "moist soil" is for the microcontroller
+
+ // Capacitive sensors usually read higher when dry and lower when wet,
+
+ // we map raw ADC values into a moisture percentage using this range
+   
+    ADC averaging helps smooth out noisy soil sensor readings. */
+
+    // unsigned numbers are important here to mitigate incorrect conversions in the ADC sensing
+
+ */
+
 #define ADC_AVG_SAMPLES        10U
 
 /* If moisture percent drops below this, auto mode starts watering. */
@@ -46,16 +60,10 @@
 #define MAX_PUMP_SECONDS       10U
 #define COOLDOWN_DURATION      30U
 
-// still need to really calibrate, the decent moist reading never went above 2700, so maybe the default 3000 would be the best approach? 
 
-// gotta mess with this again later
-/*
- * Replace these values after calibration.
- * Capacitive sensors usually read higher when dry and lower when wet,
- * so we map raw ADC values into a moisture percentage using this range.
- */
-#define SENSOR_DRY_RAW         2700U
-#define SENSOR_WET_RAW         1500U
+
+#define SENSOR_DRY_RAW         2750U
+#define SENSOR_WET_RAW         1450U
 
 // ADC, TIMERS, AND UART handles 
 
@@ -66,9 +74,16 @@ extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart2;
 
 
-// ?? 
 
-/* Internal helper functions used only inside this file. */
+
+/*
+
+
+For the sake of reducing redundancy
+
+Internal helper functions used only inside this file. 
+
+*/
 static void ShowCommands(void);
 static void UART_SendString(const char *text);
 static void Pump_Set(uint8_t on);
@@ -77,9 +92,6 @@ static void ProcessCommand(void);
 static uint32_t ReadMoistureRawAverage(void);
 static uint32_t RawToPercent(uint32_t raw);
 static uint8_t CommandMatches(const char *command, const char *alias1, const char *alias2);
-
-
-// ihh have to study this section a little more because im not sure what the benefit is here
 
 // volatile : type qualifier that informs the compiler that a variable's value can be changed by something outside the program's control at any time
 // volatile is absolutely essential for a project involving ADC and UART because both rely on hardware registers and asynchronous events that the compiler cannot track
@@ -121,8 +133,8 @@ static uint32_t lastPercent = 0;
 
 void App_Init(void)
 {
-    /* Force the relay to the OFF state during startup. */
-    Pump_Set(0);
+    // start the relay as OFF so it doesnt run by accident or spill water
+    Pump_Set(0); // start at a logic low
 
     /* Start with the LED off. TIM2 will toggle it later. */
     HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_RESET);
@@ -132,6 +144,10 @@ void App_Init(void)
     UART_SendString(" STM32 Automatic Watering Terminal \r\n");
     UART_SendString("-----------------------------\r\n");
     UART_SendString("Type a command, then press Enter.\r\n");
+    UART_SendString("-----------------------------\r\n");
+    UART_SendString("Adjust 'local echo' settings in PuTTY to see your text inputs \r\n");
+    UART_SendString("-----------------------------\r\n");
+
     // add the commands to actuallu show what the command buttons are instead of guessing.
     // also maybe i should add soemthing that will remind me that the inputs dont pop up UNLESS I ACTIVATE IT ON PUTTY(and this is just for windows, ive yet to have a signle sucessful run on the macbook)
     // im thinking about making this connect to the oldmacbook as a client and that computer can just run the inside plants or something
@@ -173,26 +189,28 @@ void App_MainLoop(void)
     if (sampleRequested != 0U) {
         sampleRequested = 0;
 
-        /* Read and average several ADC samples, then convert to percent. */
-        lastRaw = ReadMoistureRawAverage(); // i feel like the data gathered isnt as sensitive as the ECG data, so its okay to avg out the outputs since its not precise sensitive data
-        lastPercent = RawToPercent(lastRaw);
+        
+        // i feel like the data gathered isnt as sensitive as the ECG data, so its okay to avg out the outputs since its not precise sensitive data
+        lastRaw = ReadMoistureRawAverage(); // Read and average several ADC samples
+        lastPercent = RawToPercent(lastRaw); // then convert to percent.\
 
         /*
-         * Auto watering decision:
-         * If auto mode is enabled, the pump is currently off, and we are not
-         * in cooldown, then turn the pump on when the moisture is too low.
+         
+         * If auto mode is enabled, 
+                the pump is currently off, and we are not  in cooldown,
+                    then turn the pump on when the moisture is too low.
          */
         if ((autoMode != 0U) && (pumpActive == 0U) && (cooldownActive == 0U)) {
             if (lastPercent < DRY_THRESHOLD_PERCENT) {
                 Pump_Set(1);
                 pumpOnSeconds = 0;
-                UART_SendString("AUTO: soil is dry, pump ON\r\n");
+                UART_SendString("AUTO: soil is dry, pump ON\r\n"); // this is the output messagem and it applies to the code bekiw as well witht he same code
             }
         }
 
         /*
          * Once the soil reading rises above the threshold plus a small margin,
-         * stop the pump and begin cooldown so it does not chatter on/off.
+         *      stop the pump and begin cooldown so it does not chatter on/off.
          * 
          * the cooldown was a good idea because again it prevents the machine from going crazy and flooding everything
          */
@@ -203,13 +221,17 @@ void App_MainLoop(void)
             UART_SendString("AUTO: soil recovered, pump OFF\r\n");
         }
 
-        /* Only print every sample if live streaming is enabled. */
+        /* print every sample if live streaming is enabled. */
         if (streamMode != 0U) {
             PrintStatus();
         }
     }
 
-    /* Timer ISRs set these flags; the actual UART prints happen safely here. */
+    // Timer ISRs set these flags
+    // the actual UART prints happen safely here.
+    // this section is what blocks you from spamming the "water on" button
+
+
     if (safetyMessagePending != 0U) {
         safetyMessagePending = 0;
         UART_SendString("SAFETY: max pump time reached\r\n");
@@ -224,10 +246,10 @@ void App_MainLoop(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *p_htim)
 {
     /*
-     * TIM2 runs once per second and handles all "timekeeping" behavior.
+     * TIM2 runs once per second
      */
     if (p_htim->Instance == TIM2) {
-        /* Blink the onboard LED so you know the firmware is alive. */
+        /* endlessly bloink the onboard LED when the system is active */
         HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
         /* If the pump is running, count how long it has been on. */
@@ -264,6 +286,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *p_huart)
     if (p_huart->Instance == USART2) {
         /*
          * Build a command string one character at a time.
+
          * A command is considered complete when Enter is pressed.
          */
         if ((rxByte == '\r') || (rxByte == '\n')) {
@@ -371,25 +394,25 @@ static void ProcessCommand(void)
 
 static void ShowCommands(void)
 {
-    /* Friendly help menu shown at startup and when "help" is entered. */
+    // help menu shown at startup and when "help" is entered.
 
-    // heres the list of everything that you can press, but you have to press help first, so make sure the help otion is there
-    // also you might wanna s,ow down how many readings percond are displayed, although it doesnt matter if you can just make the menhu show up again 
+    // heres the list of everything that you can press
+    // 
     UART_SendString("Commands:\r\n");
-    UART_SendString("  help or h      - show commands\r\n");
-    UART_SendString("  status or s    - print moisture and pump status\r\n");
-    UART_SendString("  auto or a      - enable automatic watering\r\n");
-    UART_SendString("  manual or m    - disable auto mode\r\n");
-    UART_SendString("  on/open/1      - turn pump on manually\r\n");
-    UART_SendString("  off/close/0    - turn pump off manually\r\n");
-    UART_SendString("  stream on      - print readings continuously\r\n");
-    UART_SendString("  stream off     - stop continuous printing\r\n");
+    UART_SendString("  help or h      -> show commands\r\n");
+    UART_SendString("  status or s    -> print moisture and pump status\r\n");
+    UART_SendString("  auto or a      -> enable automatic watering\r\n");
+    UART_SendString("  manual or m    -> disable auto mode\r\n");
+    UART_SendString("  on/open/1      -> turn pump on manually\r\n");
+    UART_SendString("  off/close/0    -> turn pump off manually\r\n");
+    UART_SendString("  stream on      -> print readings continuously\r\n");
+    UART_SendString("  stream off     -> stop continuous printing\r\n");
     UART_SendString("Press Enter after each command.\r\n");
 }
 
 static void UART_SendString(const char *text)
 {
-    /* Blocking UART transmit is fine here because this helper is only used
+    /* Blocking UART transmit 
      * from normal code, not from the timer ISRs.
      */
     HAL_UART_Transmit(&huart2, (uint8_t *)text, strlen(text), HAL_MAX_DELAY);
@@ -438,15 +461,16 @@ static uint32_t RawToPercent(uint32_t raw)
     int32_t percent;
     int32_t range = (int32_t)SENSOR_DRY_RAW - (int32_t)SENSOR_WET_RAW;
 
-    /* Protect against a bad calibration range. */
+    // mitigate/block unsreasonable readings
     if (range <= 0) {
         return 0U;
     }
 
-    /* Convert raw ADC value into a 0-100 moisture percentage. */
+    /* Convert raw ADC value into a moisture percentage ranging from 0 - 100 % */
     percent = ((int32_t)SENSOR_DRY_RAW - (int32_t)raw) * 100 / range;
 
-    /* Clamp result in case the raw value is outside the calibration range. */
+    //  Clamp results within 1 - 100% numerical range
+
     if (percent < 0) {
         percent = 0;
     }
@@ -476,7 +500,7 @@ static void PrintStatus(void)
 {
     char msg[128];
 
-    /* Build one readable line for PuTTY. */
+    /* one readable line for PuTTY; youll see this line when you get an output, for example, when you press status or s */
     snprintf(msg, sizeof(msg),
              "Raw=%lu Moisture=%lu%% Pump=%s Auto=%s Cooldown=%s\r\n",
              (unsigned long)lastRaw,
