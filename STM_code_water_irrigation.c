@@ -67,7 +67,7 @@
 
 // ADC, TIMERS, AND UART handles 
 
-/* These handles are created by STM32Cube-generated code in main.c. */
+   // external handles from the main.c file
 extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
