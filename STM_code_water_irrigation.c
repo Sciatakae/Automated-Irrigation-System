@@ -249,14 +249,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *p_htim)
      * TIM2 runs once per second
      */
     if (p_htim->Instance == TIM2) {
-        /* endlessly bloink the onboard LED when the system is active */
+        /* endlessly blink the onboard LED when the system is active */
         HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
         /* If the pump is running, count how long it has been on. */
         if (pumpActive != 0U) {
             pumpOnSeconds++;
             if (pumpOnSeconds >= MAX_PUMP_SECONDS) {
-                /* Safety shutoff if the pump runs too long. */
+                /* automatic safety off . */
                 Pump_Set(0);
                 cooldownActive = 1;
                 cooldownSeconds = 0;
@@ -412,9 +412,9 @@ static void ShowCommands(void)
 
 static void UART_SendString(const char *text)
 {
-    /* Blocking UART transmit 
-     * from normal code, not from the timer ISRs.
-     */
+    // Blocking UART transmit 
+     
+     
     HAL_UART_Transmit(&huart2, (uint8_t *)text, strlen(text), HAL_MAX_DELAY);
 }
 
